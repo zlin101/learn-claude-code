@@ -7,7 +7,7 @@ from manager import TODO
 
 load_dotenv(override=True)
 
-TOOL_HANDLERS = {
+TOOL_HANDLERS  = {
     "todo":       lambda **kw: TODO.update(kw["items"]),
     "bash":       lambda **kw: run_bash(kw["command"]),
     "read_file":  lambda **kw: run_read(kw["path"], kw.get("limit")),
@@ -15,7 +15,7 @@ TOOL_HANDLERS = {
     "edit_file":  lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"]),
 }
 
-TOOLS = [
+CHILD_TOOLS  = [
     {"name": "bash", "description": "Run a shell command.",
      "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
     {"name": "read_file", "description": "Read file contents.",
@@ -27,6 +27,17 @@ TOOLS = [
     {"name": "todo", "description": "Update task list. Track progress on multi-step tasks.",
      "input_schema": {"type": "object", "properties": {"items": {"type": "array", "items": {"type": "object", "properties": {"id": {"type": "string"}, "text": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}, "required": ["id", "text", "status"]}}}, "required": ["items"]}},
 ]
+
+PARENT_TOOLS = CHILD_TOOLS + [
+    {"name": "task",
+     "description": "Spawn a subagent with fresh context.",
+     "input_schema": {
+         "type": "object",
+         "properties": {"prompt": {"type": "string"}},
+         "required": ["prompt"],
+     }},
+]
+
 
 WORKDIR = Path(os.getenv("WORKDIR", ".")).resolve()  
 
