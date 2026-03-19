@@ -3,11 +3,13 @@ import subprocess
 from pathlib import Path
 from dotenv import load_dotenv
 
-from manager import TODO 
+from manager import TODO
+from skills import SKILL_LOADER
 
 load_dotenv(override=True)
 
 TOOL_HANDLERS  = {
+    "load_skill": lambda **kw: SKILL_LOADER.get_content(kw["name"]),
     "todo":       lambda **kw: TODO.update(kw["items"]),
     "bash":       lambda **kw: run_bash(kw["command"]),
     "read_file":  lambda **kw: run_read(kw["path"], kw.get("limit")),
@@ -26,6 +28,8 @@ CHILD_TOOLS  = [
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
     {"name": "todo", "description": "Update task list. Track progress on multi-step tasks.",
      "input_schema": {"type": "object", "properties": {"items": {"type": "array", "items": {"type": "object", "properties": {"id": {"type": "string"}, "text": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}, "required": ["id", "text", "status"]}}}, "required": ["items"]}},
+    {"name": "load_skill", "description": "Load specialized knowledge by name.",
+     "input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "Skill name to load"}}, "required": ["name"]}},
 ]
 
 PARENT_TOOLS = CHILD_TOOLS + [

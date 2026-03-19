@@ -3,6 +3,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 from tools import TOOL_HANDLERS, CHILD_TOOLS, PARENT_TOOLS, WORKDIR, TOOL_HANDLERS
+from skills import SKILL_LOADER
 
 load_dotenv(override=True)
 
@@ -12,7 +13,9 @@ client = Anthropic(
 )
 
 MODEL = "glm-4.7"
-SYSTEM = f"You are a coding agent at {WORKDIR}. Use the task tool to delegate exploration or subtasks."
+
+SYSTEM = f"""You are a coding agent at {WORKDIR}. Skills available:{SKILL_LOADER.get_descriptions()}"""
+
 SUBAGENT_SYSTEM = f"You are a coding subagent at {WORKDIR}. Complete the given task, then summarize your findings."
 
 # -- The core pattern: a while loop that calls tools until the model stops --
