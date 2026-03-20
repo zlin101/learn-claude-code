@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 from tools import TOOL_HANDLERS, CHILD_TOOLS, PARENT_TOOLS, WORKDIR, TOOL_HANDLERS
 from skills import SKILL_LOADER
+from config import MODEL
 
 load_dotenv(override=True)
 
@@ -12,9 +13,11 @@ client = Anthropic(
     base_url=os.getenv("ANTHROPIC_BASE_URL")
 )
 
-MODEL = "glm-4.7"
-
-SYSTEM = f"""You are a coding agent at {WORKDIR}. Skills available:{SKILL_LOADER.get_descriptions()}"""
+SYSTEM = f"""
+    You are a coding agent at {WORKDIR}. 
+    Use task tools to plan and track work.
+    Skills available:{SKILL_LOADER.get_descriptions()}.
+"""
 
 SUBAGENT_SYSTEM = f"You are a coding subagent at {WORKDIR}. Complete the given task, then summarize your findings."
 

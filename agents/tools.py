@@ -3,12 +3,16 @@ import subprocess
 from pathlib import Path
 from dotenv import load_dotenv
 
-from manager import TODO
+from manager import TODO, TASKS
 from skills import SKILL_LOADER
 
 load_dotenv(override=True)
 
 TOOL_HANDLERS  = {
+    "task_create": lambda **kw: TASKS.create(kw["subject"]),
+    "task_update": lambda **kw: TASKS.update(kw["task_id"], kw.get("status")),
+    "task_list":   lambda **kw: TASKS.list_all(),
+    "task_get":    lambda **kw: TASKS.get(kw["task_id"]),
     "load_skill": lambda **kw: SKILL_LOADER.get_content(kw["name"]),
     "todo":       lambda **kw: TODO.update(kw["items"]),
     "bash":       lambda **kw: run_bash(kw["command"]),
@@ -18,6 +22,7 @@ TOOL_HANDLERS  = {
 }
 
 CHILD_TOOLS  = [
+    # normal tools
     {"name": "bash", "description": "Run a shell command.",
      "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
     {"name": "read_file", "description": "Read file contents.",
@@ -26,10 +31,21 @@ CHILD_TOOLS  = [
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "required": ["path", "content"]}},
     {"name": "edit_file", "description": "Replace exact text in file.",
      "input_schema": {"type": "object", "properties": {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}}, "required": ["path", "old_text", "new_text"]}},
+    # todo
     {"name": "todo", "description": "Update task list. Track progress on multi-step tasks.",
      "input_schema": {"type": "object", "properties": {"items": {"type": "array", "items": {"type": "object", "properties": {"id": {"type": "string"}, "text": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}}, "required": ["id", "text", "status"]}}}, "required": ["items"]}},
+    # skills
     {"name": "load_skill", "description": "Load specialized knowledge by name.",
      "input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "Skill name to load"}}, "required": ["name"]}},
+    # tasks 
+    {"name": "task_create", "description": "Create a new task.",
+     "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}, "description": {"type": "string"}}, "required": ["subject"]}},
+    {"name": "task_update", "description": "Update a task's status or dependencies.",
+     "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}, "status": {"type": "string", "enum": ["pending", "in_progress", "completed"]}, "addBlockedBy": {"type": "array", "items": {"type": "integer"}}, "addBlocks": {"type": "array", "items": {"type": "integer"}}}, "required": ["task_id"]}},
+    {"name": "task_list", "description": "List all tasks with status summary.",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "task_get", "description": "Get full details of a task by ID.",
+     "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
 ]
 
 PARENT_TOOLS = CHILD_TOOLS + [

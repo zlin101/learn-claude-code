@@ -1,0 +1,83 @@
+import os
+from anthropic import Anthropic
+from dotenv import load_dotenv
+
+from tools import TOOL_HANDLERS, CHILD_TOOLS, PARENT_TOOLS, WORKDIR, TOOL_HANDLERS
+from skills import SKILL_LOADER
+from config import MODEL
+from layout_message import LOGGER, log_message, start_logging, save_conversation
+
+load_dotenv(override=True)
+
+client = Anthropic(
+    api_key=os.getenv("ANTHROPIC_AUTH_TOKEN"),
+    base_url=os.getenv("ANTHROPIC_BASE_URL")
+)
+
+SYSTEM = f"You are a coding agent at {WORKDIR}. Use task tools to plan and track work."
+
+
+SUBAGENT_SYSTEM = f"You are a coding subagent at {WORKDIR}. Complete the given task, then summarize your findings."
+
+# -- The core pattern: a while loop that calls tools until the model stops --
+def agent_loop(messages: list):
+    while True:
+        response = client.messages.create(
+            model=MODEL, system=SYSTEM, messages=messages,
+            tools=PARENT_TOOLS, max_tokens=8000,
+        )
+        messages.append({"role": "assistant", "content": response.content})
+
+        # record assistant reponse
+        log_message("assistant", response.content, "model_response")
+
+        if response.stop_reason != "tool_use":
+            save_conversation(messages)
+            return
+
+        results = []
+        for block in response.content:
+            if block.type == "tool_use":
+                handler = TOOL_HANDLERS.get(block.name)
+                try:
+                    output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
+                except Exception as e:
+                    output = f"Error: {e}"
+                print(f"> {block.name}: {str(output)[:200]}")
+                results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
+
+        messages.append({"role": "user", "content": results})
+
+        # 记录工具执行结果
+        log_message("user", results, "tool_results")
+if __name__ == "__main__":
+    history = []
+    while True:
+        try:
+            query = input("\033[36ms07 >> \033[0m")
+        except (EOFError, KeyboardInterrupt):
+            break
+        if query.strip().lower() in ("q", "exit", ""):
+            break
+
+        # 开始新的日志会话
+        task_name = query[:30].replace(" ", "_").replace("/", "_")
+        start_logging(task_name)
+
+        history.append({"role": "user", "content": query})
+
+        # 记录用户输入
+        log_message("user", query, "user_input")
+
+        agent_loop(history)
+
+        response_content = history[-1]["content"]
+        if isinstance(response_content, list):
+            for block in response_content:
+                if hasattr(block, "text"):
+                    print(block.text)
+        print()
+
+        # 输出日志保存位置
+        log_path = LOGGER.get_session_path()
+        print(f"\033[90m[日志保存到: {log_path}]\033[0m")

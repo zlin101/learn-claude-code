@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 from dotenv import load_dotenv
 
-SKILLDIR = Path(os.getenv("SKILLDIR", ".")).resolve()
+from config import SKILLDIR
 
 class SkillLoader:
     def __init__(self, skills_dir: Path):
