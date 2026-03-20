@@ -5,12 +5,13 @@ from dotenv import load_dotenv
 
 from manager import TODO, TASKS
 from skills import SKILL_LOADER
-
+from config import WORKDIR
 load_dotenv(override=True)
 
 TOOL_HANDLERS  = {
-    "task_create": lambda **kw: TASKS.create(kw["subject"]),
-    "task_update": lambda **kw: TASKS.update(kw["task_id"], kw.get("status")),
+    "compact":    lambda **kw: "Manual compression requested.",
+    "task_create": lambda **kw: TASKS.create(kw["subject"], kw["description"],),
+    "task_update": lambda **kw: TASKS.update(kw["task_id"], kw.get("status"), kw.get("addBlockedBy"), kw.get("addBlocks")),
     "task_list":   lambda **kw: TASKS.list_all(),
     "task_get":    lambda **kw: TASKS.get(kw["task_id"]),
     "load_skill": lambda **kw: SKILL_LOADER.get_content(kw["name"]),
@@ -46,6 +47,9 @@ CHILD_TOOLS  = [
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "task_get", "description": "Get full details of a task by ID.",
      "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
+    # compact 
+    {"name": "compact", "description": "Trigger manual conversation compression.",
+     "input_schema": {"type": "object", "properties": {"focus": {"type": "string", "description": "What to preserve in the summary"}}}},
 ]
 
 PARENT_TOOLS = CHILD_TOOLS + [
@@ -57,9 +61,6 @@ PARENT_TOOLS = CHILD_TOOLS + [
          "required": ["prompt"],
      }},
 ]
-
-
-WORKDIR = Path(os.getenv("WORKDIR", ".")).resolve()  
 
 def safe_path(p: str) -> Path:
     path = (WORKDIR / p).resolve()

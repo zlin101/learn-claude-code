@@ -39,7 +39,7 @@ class TodoManager:
 class TaskManager:
     def __init__(self, tasks_dir: Path):
         self.dir = tasks_dir
-        self.dir.mkdir(exist_ok=True)
+        self.dir.mkdir(parents=True, exist_ok=True)
         self._next_id = self._max_id() + 1
 
     def _max_id(self) -> int:
