@@ -1,34 +1,34 @@
+import os
+from anthropic import Anthropic
 from dotenv import load_dotenv
 
 from tools import TOOL_HANDLERS, CHILD_TOOLS, PARENT_TOOLS, WORKDIR, TOOL_HANDLERS
 from skills import SKILL_LOADER
-from config import MODEL, client, THRESHOLD
+from config import MODEL
 from layout_message import LOGGER, log_message, start_logging, save_conversation
-from context import micro_compact, estimate_tokens, auto_compact
-
 
 load_dotenv(override=True)
 
-SYSTEM = f"You are a coding agent at {WORKDIR}. Use task tools to plan and track work.Skills available:{SKILL_LOADER.get_descriptions()}."
+client = Anthropic(
+    api_key=os.getenv("ANTHROPIC_AUTH_TOKEN"),
+    base_url=os.getenv("ANTHROPIC_BASE_URL")
+)
+
+SYSTEM = f"You are a coding agent at {WORKDIR}. Use task tools to plan and track work."
+
 
 SUBAGENT_SYSTEM = f"You are a coding subagent at {WORKDIR}. Complete the given task, then summarize your findings."
 
 # -- The core pattern: a while loop that calls tools until the model stops --
 def agent_loop(messages: list):
     while True:
-        # Layer 1: micro_compact before each LLM call;
-        micro_compact(messages)
-        # Layer 2: auto_compact if token estimate exceeds threshold
-        if estimate_tokens(messages) > THRESHOLD:
-            print("[auto_compact triggered]")
-            messages[:] = auto_compact(messages)
-        
         response = client.messages.create(
             model=MODEL, system=SYSTEM, messages=messages,
             tools=PARENT_TOOLS, max_tokens=8000,
         )
-
         messages.append({"role": "assistant", "content": response.content})
+
+        # record assistant reponse
         log_message("assistant", response.content, "model_response")
 
         if response.stop_reason != "tool_use":
@@ -36,28 +36,20 @@ def agent_loop(messages: list):
             return
 
         results = []
-        manual_compact = False
         for block in response.content:
             if block.type == "tool_use":
-                if block.name == "compact":
-                    manual_compact = True
-                    output = "Compressing ... "
-                else:
-                    handler = TOOL_HANDLERS.get(block.name)
-                    try:
-                        output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
-                    except Exception as e:
-                        output = f"Error: {e}"
+                handler = TOOL_HANDLERS.get(block.name)
+                try:
+                    output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
+                except Exception as e:
+                    output = f"Error: {e}"
                 print(f"> {block.name}: {str(output)[:200]}")
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
 
         messages.append({"role": "user", "content": results})
-        log_message("user", results, "tool_results")
-         # Layer 3: manual compact triggered by the compact tool
-        if manual_compact:
-            print("[manual compacted]")
-            messages[:] = auto_compact(messages)
 
+        # 记录工具执行结果
+        log_message("user", results, "tool_results")
 if __name__ == "__main__":
     history = []
     while True:
