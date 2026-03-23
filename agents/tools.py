@@ -3,7 +3,7 @@ import subprocess
 from pathlib import Path
 from dotenv import load_dotenv
 
-from manager import TODO, TASKS
+from manager import TODO, TASKS, BG
 from skills import SKILL_LOADER
 from config import WORKDIR
 load_dotenv(override=True)
@@ -20,7 +20,10 @@ TOOL_HANDLERS  = {
     "read_file":  lambda **kw: run_read(kw["path"], kw.get("limit")),
     "write_file": lambda **kw: run_write(kw["path"], kw["content"]),
     "edit_file":  lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"]),
+    "background_run":   lambda **kw: BG.run(kw["command"]),
+    "check_background": lambda **kw: BG.check(kw.get("task_id")),
 }
+
 
 CHILD_TOOLS  = [
     # normal tools
@@ -38,7 +41,7 @@ CHILD_TOOLS  = [
     # skills
     {"name": "load_skill", "description": "Load specialized knowledge by name.",
      "input_schema": {"type": "object", "properties": {"name": {"type": "string", "description": "Skill name to load"}}, "required": ["name"]}},
-    # tasks 
+    # tasks
     {"name": "task_create", "description": "Create a new task.",
      "input_schema": {"type": "object", "properties": {"subject": {"type": "string"}, "description": {"type": "string"}}, "required": ["subject"]}},
     {"name": "task_update", "description": "Update a task's status or dependencies.",
@@ -47,9 +50,14 @@ CHILD_TOOLS  = [
      "input_schema": {"type": "object", "properties": {}}},
     {"name": "task_get", "description": "Get full details of a task by ID.",
      "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
-    # compact 
+    # compact
     {"name": "compact", "description": "Trigger manual conversation compression.",
      "input_schema": {"type": "object", "properties": {"focus": {"type": "string", "description": "What to preserve in the summary"}}}},
+    # background
+    {"name": "background_run", "description": "Run command in background thread. Returns task_id immediately.",
+     "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
+    {"name": "check_background", "description": "Check background task status. Omit task_id to list all.",
+     "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}}}},
 ]
 
 PARENT_TOOLS = CHILD_TOOLS + [

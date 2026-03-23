@@ -139,6 +139,7 @@ class BackgroundManager:
         self.tasks = {}  # task_id -> {status, result, command}
         self._notification_queue = []  # completed task results
         self._lock = threading.Lock()
+
     def run(self, command: str) -> str:
         """Start a background thread, return task_id immediately."""
         task_id = str(uuid.uuid4())[:8]
@@ -148,6 +149,7 @@ class BackgroundManager:
         )
         thread.start()
         return f"Background task {task_id} started: {command[:80]}"
+    
     def _execute(self, task_id: str, command: str):
         """Thread target: run subprocess, capture output, push to queue."""
         try:
@@ -163,8 +165,10 @@ class BackgroundManager:
         except Exception as e:
             output = f"Error: {e}"
             status = "error"
+        # update the status of task;
         self.tasks[task_id]["status"] = status
         self.tasks[task_id]["result"] = output or "(no output)"
+
         with self._lock:
             self._notification_queue.append({
                 "task_id": task_id,
@@ -172,6 +176,7 @@ class BackgroundManager:
                 "command": command[:80],
                 "result": (output or "(no output)")[:500],
             })
+
     def check(self, task_id: str = None) -> str:
         """Check status of one task or list all."""
         if task_id:
@@ -183,6 +188,7 @@ class BackgroundManager:
         for tid, t in self.tasks.items():
             lines.append(f"{tid}: [{t['status']}] {t['command'][:60]}")
         return "\n".join(lines) if lines else "No background tasks."
+    
     def drain_notifications(self) -> list:
         """Return and clear all pending completion notifications."""
         with self._lock:
@@ -192,4 +198,4 @@ class BackgroundManager:
 
 TODO = TodoManager()
 TASKS = TaskManager(TASKSDIR)
-BACKGROUND = BackgroundManager()
+BG = BackgroundManager()

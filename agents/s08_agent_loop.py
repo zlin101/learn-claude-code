@@ -5,6 +5,7 @@ from skills import SKILL_LOADER
 from config import MODEL, client, THRESHOLD
 from layout_message import LOGGER, log_message, start_logging, save_conversation
 from context import micro_compact, estimate_tokens, auto_compact
+from manager import BG
 
 
 load_dotenv(override=True)
@@ -16,6 +17,15 @@ SUBAGENT_SYSTEM = f"You are a coding subagent at {WORKDIR}. Complete the given t
 # -- The core pattern: a while loop that calls tools until the model stops --
 def agent_loop(messages: list):
     while True:
+        # Drain background notifications and inject as system message before LLM call
+        notifs = BG.drain_notifications()
+        if notifs and messages:
+            notif_text = "\n".join(
+                f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs
+            )
+            messages.append({"role": "user", "content": f"<background-results>\n{notif_text}\n</background-results>"})
+            messages.append({"role": "assistant", "content": "Noted background results."})
+
         # Layer 1: micro_compact before each LLM call;
         micro_compact(messages)
         # Layer 2: auto_compact if token estimate exceeds threshold
