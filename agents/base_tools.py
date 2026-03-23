@@ -1,0 +1,43 @@
+import subprocess
+from pathlib import Path
+
+from config import WORKDIR
+
+def safe_path(p: str) -> Path:
+    path = (WORKDIR / p).resolve()
+    if not path.is_relative_to(WORKDIR):
+        raise ValueError(f"Path escapes workspace: {p}")
+    return path
+
+def run_bash(command: str) -> str:
+    dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
+    if any(d in command for d in dangerous):
+        return "Error: Dangerous command blocked"
+    try:
+        cwd = safe_path(".")
+        r = subprocess.run(command, shell=True, cwd=cwd,
+                           capture_output=True, text=True, timeout=120)
+        out = (r.stdout + r.stderr).strip()
+        return out[:50000] if out else "(no output)"
+    except subprocess.TimeoutExpired:
+        return "Error: Timeout (120s)"
+    
+def run_read(path: str, limit: int = None) -> str:
+    text = safe_path(path).read_text()
+    lines = text.splitlines()
+    if limit and limit < len(lines):
+        lines = lines[:limit]
+    return "\n".join(lines)[:50000]
+
+def run_write(path: str, content: str) -> str:
+    safe_path(path).write_text(content)
+    return f"Written to {path}"
+
+def run_edit(path: str, old_text: str, new_text: str) -> str:
+    path_obj = safe_path(path)
+    text = path_obj.read_text()
+    if old_text not in text:
+        return f"Error: '{old_text}' not found in {path}"
+    new_content = text.replace(old_text, new_text)
+    path_obj.write_text(new_content)
+    return f"Replaced in {path}"

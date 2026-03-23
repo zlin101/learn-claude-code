@@ -17,6 +17,9 @@ def _resolve_from_base(path_str: str) -> Path:
 WORKDIR = _resolve_from_base(os.getenv("WORKDIR", "."))
 SKILLDIR = _resolve_from_base(os.getenv("SKILLDIR", "."))
 MODEL = os.getenv("MODEL", "glm-4.7")
+
+TEAM_DIR = WORKDIR / ".team"
+INBOX_DIR = TEAM_DIR / "inbox"
 TASKSDIR = WORKDIR / ".tasks"
 TRANSCRIPT_DIR = WORKDIR / ".transcript"
 
@@ -27,3 +30,11 @@ client = Anthropic(
     api_key=os.getenv("ANTHROPIC_AUTH_TOKEN"),
     base_url=os.getenv("ANTHROPIC_BASE_URL")
 )
+
+VALID_MSG_TYPES = {
+    "message",
+    "broadcast",
+    "shutdown_request",
+    "shutdown_response",
+    "plan_approval_response",
+}

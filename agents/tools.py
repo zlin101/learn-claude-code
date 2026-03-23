@@ -1,11 +1,13 @@
-import os
-import subprocess
-from pathlib import Path
+import json
 from dotenv import load_dotenv
 
 from manager import TODO, TASKS, BG
 from skills import SKILL_LOADER
-from config import WORKDIR
+from team import TEAM
+from message import BUS
+from config import VALID_MSG_TYPES
+from base_tools import run_bash, run_read, run_write, run_edit
+
 load_dotenv(override=True)
 
 TOOL_HANDLERS  = {
@@ -22,6 +24,11 @@ TOOL_HANDLERS  = {
     "edit_file":  lambda **kw: run_edit(kw["path"], kw["old_text"], kw["new_text"]),
     "background_run":   lambda **kw: BG.run(kw["command"]),
     "check_background": lambda **kw: BG.check(kw.get("task_id")),
+    "spawn_teammate":  lambda **kw: TEAM.spawn(kw["name"], kw["role"], kw["prompt"]),
+    "list_teammates":  lambda **kw: TEAM.list_all(),
+    "send_message":    lambda **kw: BUS.send("lead", kw["to"], kw["content"], kw.get("msg_type", "message")),
+    "read_inbox":      lambda **kw: json.dumps(BUS.read_inbox("lead"), indent=2),
+    "broadcast":       lambda **kw: BUS.broadcast("lead", kw["content"], TEAM.member_names()),
 }
 
 
@@ -58,7 +65,19 @@ CHILD_TOOLS  = [
      "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}, "required": ["command"]}},
     {"name": "check_background", "description": "Check background task status. Omit task_id to list all.",
      "input_schema": {"type": "object", "properties": {"task_id": {"type": "string"}}}},
+    # team
+    {"name": "spawn_teammate", "description": "Spawn a persistent teammate that runs in its own thread.",
+     "input_schema": {"type": "object", "properties": {"name": {"type": "string"}, "role": {"type": "string"}, "prompt": {"type": "string"}}, "required": ["name", "role", "prompt"]}},
+    {"name": "list_teammates", "description": "List all teammates with name, role, status.",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "send_message", "description": "Send a message to a teammate's inbox.",
+     "input_schema": {"type": "object", "properties": {"to": {"type": "string"}, "content": {"type": "string"}, "msg_type": {"type": "string", "enum": list(VALID_MSG_TYPES)}}, "required": ["to", "content"]}},
+    {"name": "read_inbox", "description": "Read and drain the lead's inbox.",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "broadcast", "description": "Send a message to all teammates.",
+     "input_schema": {"type": "object", "properties": {"content": {"type": "string"}}, "required": ["content"]}},
 ]
+
 
 PARENT_TOOLS = CHILD_TOOLS + [
     {"name": "task",
@@ -69,42 +88,3 @@ PARENT_TOOLS = CHILD_TOOLS + [
          "required": ["prompt"],
      }},
 ]
-
-def safe_path(p: str) -> Path:
-    path = (WORKDIR / p).resolve()
-    if not path.is_relative_to(WORKDIR):
-        raise ValueError(f"Path escapes workspace: {p}")
-    return path
-
-def run_bash(command: str) -> str:
-    dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
-    if any(d in command for d in dangerous):
-        return "Error: Dangerous command blocked"
-    try:
-        cwd = safe_path(".")
-        r = subprocess.run(command, shell=True, cwd=cwd,
-                           capture_output=True, text=True, timeout=120)
-        out = (r.stdout + r.stderr).strip()
-        return out[:50000] if out else "(no output)"
-    except subprocess.TimeoutExpired:
-        return "Error: Timeout (120s)"
-    
-def run_read(path: str, limit: int = None) -> str:
-    text = safe_path(path).read_text()
-    lines = text.splitlines()
-    if limit and limit < len(lines):
-        lines = lines[:limit]
-    return "\n".join(lines)[:50000]
-
-def run_write(path: str, content: str) -> str:
-    safe_path(path).write_text(content)
-    return f"Written to {path}"
-
-def run_edit(path: str, old_text: str, new_text: str) -> str:
-    path_obj = safe_path(path)
-    text = path_obj.read_text()
-    if old_text not in text:
-        return f"Error: '{old_text}' not found in {path}"
-    new_content = text.replace(old_text, new_text)
-    path_obj.write_text(new_content)
-    return f"Replaced in {path}"

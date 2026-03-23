@@ -1,4 +1,3 @@
-
 import os
 import json
 import uuid
@@ -38,7 +37,7 @@ class TodoManager:
         done = sum(1 for t in self.items if t["status"] == "completed")
         lines.append(f"\n({done}/{len(self.items)} completed)")
         return "\n".join(lines)
-    
+
 class TaskManager:
     def __init__(self, tasks_dir: Path):
         self.dir = tasks_dir
