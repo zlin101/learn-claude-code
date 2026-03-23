@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 from tools import TOOL_HANDLERS, PARENT_TOOLS
 from config import MODEL, client
-from layout_message import LOGGER, log_message, start_logging, save_conversation
+from layout_message import LOGGER, log_message, start_logging
 from config import WORKDIR
 from message import BUS
 
@@ -28,7 +28,7 @@ def agent_loop(messages: list):
             model=MODEL,
             system=SYSTEM,
             messages=messages,
-            tools=TOOL_HANDLERS,
+            tools=PARENT_TOOLS,
             max_tokens=8000,
         )
         messages.append({"role": "assistant", "content": response.content})
@@ -37,7 +37,7 @@ def agent_loop(messages: list):
         results = []
         for block in response.content:
             if block.type == "tool_use":
-                handler = PARENT_TOOLS.get(block.name)
+                handler = TOOL_HANDLERS.get(block.name)
                 try:
                     output = handler(**block.input) if handler else f"Unknown tool: {block.name}"
                 except Exception as e:

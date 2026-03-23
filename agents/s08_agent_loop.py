@@ -1,12 +1,11 @@
 from dotenv import load_dotenv
 
-from tools import TOOL_HANDLERS, CHILD_TOOLS, PARENT_TOOLS, WORKDIR, TOOL_HANDLERS
+from tools import TOOL_HANDLERS, CHILD_TOOLS, PARENT_TOOLS, TOOL_HANDLERS
 from skills import SKILL_LOADER
-from config import MODEL, client, THRESHOLD
+from config import MODEL, client, THRESHOLD, WORKDIR
 from layout_message import LOGGER, log_message, start_logging, save_conversation
 from context import micro_compact, estimate_tokens, auto_compact
 from manager import BG
-
 
 load_dotenv(override=True)
 

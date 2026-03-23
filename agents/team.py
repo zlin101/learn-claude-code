@@ -14,17 +14,21 @@ class TeammateManager:
         self.config_path = self.dir / "config.json"
         self.config = self._load_config()
         self.threads = {}
+
     def _load_config(self) -> dict:
         if self.config_path.exists():
             return json.loads(self.config_path.read_text())
         return {"team_name": "default", "members": []}
+    
     def _save_config(self):
         self.config_path.write_text(json.dumps(self.config, indent=2))
+
     def _find_member(self, name: str) -> dict:
         for m in self.config["members"]:
             if m["name"] == name:
                 return m
         return None
+    
     def spawn(self, name: str, role: str, prompt: str) -> str:
         member = self._find_member(name)
         if member:
@@ -44,6 +48,7 @@ class TeammateManager:
         self.threads[name] = thread
         thread.start()
         return f"Spawned '{name}' (role: {role})"
+    
     def _teammate_loop(self, name: str, role: str, prompt: str):
         sys_prompt = (
             f"You are '{name}', role: {role}, at {WORKDIR}. "
@@ -83,6 +88,7 @@ class TeammateManager:
         if member and member["status"] != "shutdown":
             member["status"] = "idle"
             self._save_config()
+
     def _exec(self, sender: str, tool_name: str, args: dict) -> str:
         # these base tools are unchanged from s02
         if tool_name == "bash":
@@ -98,6 +104,7 @@ class TeammateManager:
         if tool_name == "read_inbox":
             return json.dumps(BUS.read_inbox(sender), indent=2)
         return f"Unknown tool: {tool_name}"
+    
     def _teammate_tools(self) -> list:
         # these base tools are unchanged from s02
         return [
@@ -114,6 +121,7 @@ class TeammateManager:
             {"name": "read_inbox", "description": "Read and drain your inbox.",
              "input_schema": {"type": "object", "properties": {}}},
         ]
+    
     def list_all(self) -> str:
         if not self.config["members"]:
             return "No teammates."
@@ -121,8 +129,8 @@ class TeammateManager:
         for m in self.config["members"]:
             lines.append(f"  {m['name']} ({m['role']}): {m['status']}")
         return "\n".join(lines)
+    
     def member_names(self) -> list:
         return [m["name"] for m in self.config["members"]]
-    
 
 TEAM = TeammateManager(TEAM_DIR)
