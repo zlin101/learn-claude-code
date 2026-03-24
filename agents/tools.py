@@ -7,43 +7,10 @@ from manager import TODO, TASKS, BG
 from skills import SKILL_LOADER
 from team import TEAM
 from message import BUS
-from config import VALID_MSG_TYPES
-from base_tools import run_bash, run_read, run_write, run_edit
+from config import VALID_MSG_TYPES, TASKS_DIR
+from base_tools import  *
 
 load_dotenv(override=True)
-
-# -- Request trackers: correlate by request_id --
-shutdown_requests = {}
-plan_requests = {}
-_tracker_lock = threading.Lock()
-
-# -- Lead-specific protocol handlers --
-def handle_shutdown_request(teammate: str) -> str:
-    req_id = str(uuid.uuid4())[:8]
-    with _tracker_lock:
-        shutdown_requests[req_id] = {"target": teammate, "status": "pending"}
-    BUS.send(
-        "lead", teammate, "Please shut down gracefully.",
-        "shutdown_request", {"request_id": req_id},
-    )
-    return f"Shutdown request {req_id} sent to '{teammate}' (status: pending)"
-
-def handle_plan_review(request_id: str, approve: bool, feedback: str = "") -> str:
-    with _tracker_lock:
-        req = plan_requests.get(request_id)
-    if not req:
-        return f"Error: Unknown plan request_id '{request_id}'"
-    with _tracker_lock:
-        req["status"] = "approved" if approve else "rejected"
-    BUS.send(
-        "lead", req["from"], feedback, "plan_approval_response",
-        {"request_id": request_id, "approve": approve, "feedback": feedback},
-    )
-    return f"Plan {req['status']} for '{req['from']}'"
-
-def _check_shutdown_status(request_id: str) -> str:
-    with _tracker_lock:
-        return json.dumps(shutdown_requests.get(request_id, {"error": "not found"}))
 
 TOOL_HANDLERS  = {
     "compact":    lambda **kw: "Manual compression requested.",
@@ -65,8 +32,10 @@ TOOL_HANDLERS  = {
     "read_inbox":      lambda **kw: json.dumps(BUS.read_inbox("lead"), indent=2),
     "broadcast":       lambda **kw: BUS.broadcast("lead", kw["content"], TEAM.member_names()),
     "shutdown_request":  lambda **kw: handle_shutdown_request(kw["teammate"]),
-    "shutdown_response": lambda **kw: _check_shutdown_status(kw.get("request_id", "")),
+    "shutdown_response": lambda **kw: check_shutdown_status(kw.get("request_id", "")),
     "plan_approval":     lambda **kw: handle_plan_review(kw["request_id"], kw["approve"], kw.get("feedback", "")),
+    "idle":              lambda **kw: "Lead does not idle.",
+    "claim_task":        lambda **kw: claim_task(kw["task_id"], "lead"),
 }
 
 
@@ -121,7 +90,12 @@ CHILD_TOOLS  = [
      "input_schema": {"type": "object", "properties": {"request_id": {"type": "string"}}, "required": ["request_id"]}},
     {"name": "plan_approval", "description": "Approve or reject a teammate's plan. Provide request_id + approve + optional feedback.",
      "input_schema": {"type": "object", "properties": {"request_id": {"type": "string"}, "approve": {"type": "boolean"}, "feedback": {"type": "string"}}, "required": ["request_id", "approve"]}},
+    {"name": "idle", "description": "Enter idle state (for lead -- rarely used).",
+     "input_schema": {"type": "object", "properties": {}}},
+    {"name": "claim_task", "description": "Claim a task from the board by ID.",
+     "input_schema": {"type": "object", "properties": {"task_id": {"type": "integer"}}, "required": ["task_id"]}},
 ]
+
 
 PARENT_TOOLS = CHILD_TOOLS + [
     {"name": "task",

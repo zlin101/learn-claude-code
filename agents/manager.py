@@ -4,7 +4,7 @@ import uuid
 import subprocess
 import threading
 from pathlib import Path
-from config import TASKSDIR, WORKDIR
+from config import TASKS_DIR, WORKDIR
 
 class TodoManager:
 
@@ -196,5 +196,5 @@ class BackgroundManager:
         return notifs
 
 TODO = TodoManager()
-TASKS = TaskManager(TASKSDIR)
+TASKS = TaskManager(TASKS_DIR)
 BG = BackgroundManager()

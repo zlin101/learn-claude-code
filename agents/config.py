@@ -20,11 +20,13 @@ MODEL = os.getenv("MODEL", "glm-4.7")
 
 TEAM_DIR = WORKDIR / ".team"
 INBOX_DIR = TEAM_DIR / "inbox"
-TASKSDIR = WORKDIR / ".tasks"
+TASKS_DIR = WORKDIR / ".tasks"
 TRANSCRIPT_DIR = WORKDIR / ".transcript"
 
 THRESHOLD = 50000
 KEEP_RECENT = 3
+POLL_INTERVAL = 5
+IDLE_TIMEOUT = 60
 
 client = Anthropic(
     api_key=os.getenv("ANTHROPIC_AUTH_TOKEN"),
