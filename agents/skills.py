@@ -1,9 +1,17 @@
 import os
 import re
 from pathlib import Path
-from dotenv import load_dotenv
 
-from config import SKILLDIR
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional dependency
+    def load_dotenv(*args, **kwargs):
+        return False
+
+try:
+    from .config import SKILLDIR
+except ImportError:  # pragma: no cover - script execution fallback
+    from config import SKILLDIR
 
 class SkillLoader:
     def __init__(self, skills_dir: Path):

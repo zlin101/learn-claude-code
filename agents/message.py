@@ -1,8 +1,11 @@
 import time
 import json
 from pathlib import Path
-import subprocess
-from config import INBOX_DIR, VALID_MSG_TYPES, WORKDIR
+
+try:
+    from .config import INBOX_DIR, REPO_ROOT, VALID_MSG_TYPES
+except ImportError:  # pragma: no cover - script execution fallback
+    from config import INBOX_DIR, REPO_ROOT, VALID_MSG_TYPES
 
 class MessageBus:
     def __init__(self, inbox_dir: Path):
@@ -41,26 +44,6 @@ class MessageBus:
                 self.send(sender, name, content, "broadcast")
                 count += 1
         return f"Broadcast to {count} teammates"
-
-def detect_repo_root(cwd: Path) -> Path | None:
-    """Return git repo root if cwd is inside a repo, else None."""
-    try:
-        r = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if r.returncode != 0:
-            return None
-        root = Path(r.stdout.strip())
-        return root if root.exists() else None
-    except Exception:
-        return None
-
-# REPO_ROOT = detect_repo_root(WORKDIR) or WORKDIR
-REPO_ROOT = WORKDIR
 
 # -- EventBus: append-only lifecycle events for observability --
 class EventBus:
@@ -101,4 +84,3 @@ class EventBus:
 
 BUS = MessageBus(INBOX_DIR)
 EVENTS = EventBus(REPO_ROOT / ".worktrees" / "events.jsonl")
-

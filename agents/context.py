@@ -1,6 +1,10 @@
 import json
 import time
-from config import TRANSCRIPT_DIR, MODEL, client, KEEP_RECENT
+
+try:
+    from .config import TRANSCRIPT_DIR, MODEL, client, KEEP_RECENT
+except ImportError:  # pragma: no cover - script execution fallback
+    from config import TRANSCRIPT_DIR, MODEL, client, KEEP_RECENT
 
 def estimate_tokens(messages: list) -> int:
     """Rough token count: ~4 chars per token."""
@@ -60,5 +64,4 @@ def auto_compact(messages: list) -> list:
         {"role": "user", "content": f"[Conversation compressed. Transcript: {transcript_path}]\n\n{summary}"},
         {"role": "assistant", "content": "Understood. I have the context from the summary. Continuing."},
     ]
-
 

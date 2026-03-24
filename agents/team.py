@@ -1,14 +1,37 @@
 import json
 import time
-import uuid
+import traceback
 from pathlib import Path
 import threading
 
-from base_tools import *
-from message import BUS, VALID_MSG_TYPES
-from config import TEAM_DIR, WORKDIR, MODEL, client, POLL_INTERVAL, IDLE_TIMEOUT
-
-_tracker_lock = threading.Lock()
+try:
+    from .base_tools import (
+        claim_task,
+        make_identity_block,
+        respond_to_shutdown_request,
+        run_bash,
+        run_edit,
+        run_read,
+        run_write,
+        scan_unclaimed_tasks,
+        submit_plan_for_approval,
+    )
+    from .message import BUS
+    from .config import TEAM_DIR, WORKDIR, MODEL, client, POLL_INTERVAL, IDLE_TIMEOUT, VALID_MSG_TYPES
+except ImportError:  # pragma: no cover - script execution fallback
+    from base_tools import (
+        claim_task,
+        make_identity_block,
+        respond_to_shutdown_request,
+        run_bash,
+        run_edit,
+        run_read,
+        run_write,
+        scan_unclaimed_tasks,
+        submit_plan_for_approval,
+    )
+    from message import BUS
+    from config import TEAM_DIR, WORKDIR, MODEL, client, POLL_INTERVAL, IDLE_TIMEOUT, VALID_MSG_TYPES
 
 # -- TeammateManager: persistent named agents with config.json --
 # -- Autonomous TeammateManager --
@@ -79,7 +102,14 @@ class TeammateManager:
                         tools=tools,
                         max_tokens=8000,
                     )
-                except Exception:
+                except Exception as exc:
+                    BUS.send(
+                        name,
+                        "lead",
+                        f"Teammate '{name}' failed while working: {exc}",
+                        "message",
+                        {"traceback": traceback.format_exc()},
+                    )
                     self._set_status(name, "idle")
                     return
                 messages.append({"role": "assistant", "content": response.content})
@@ -152,25 +182,14 @@ class TeammateManager:
         if tool_name == "read_inbox":
             return json.dumps(BUS.read_inbox(sender), indent=2)
         if tool_name == "shutdown_response":
-            req_id = args["request_id"]
-            with _tracker_lock:
-                if req_id in shutdown_requests:
-                    shutdown_requests[req_id]["status"] = "approved" if args["approve"] else "rejected"
-            BUS.send(
-                sender, "lead", args.get("reason", ""),
-                "shutdown_response", {"request_id": req_id, "approve": args["approve"]},
+            return respond_to_shutdown_request(
+                sender,
+                args["request_id"],
+                args["approve"],
+                args.get("reason", ""),
             )
-            return f"Shutdown {'approved' if args['approve'] else 'rejected'}"
         if tool_name == "plan_approval":
-            plan_text = args.get("plan", "")
-            req_id = str(uuid.uuid4())[:8]
-            with _tracker_lock:
-                plan_requests[req_id] = {"from": sender, "plan": plan_text, "status": "pending"}
-            BUS.send(
-                sender, "lead", plan_text, "plan_approval_response",
-                {"request_id": req_id, "plan": plan_text},
-            )
-            return f"Plan submitted (request_id={req_id}). Waiting for approval."
+            return submit_plan_for_approval(sender, args.get("plan", ""))
         if tool_name == "claim_task":
             return claim_task(args["task_id"], sender)
         return f"Unknown tool: {tool_name}"

@@ -1,21 +1,55 @@
 import json
-import uuid
-import threading
-from dotenv import load_dotenv
 
-from manager import TODO, TASKS, BG, WORKTREES
-from skills import SKILL_LOADER
-from team import TEAM
-from message import BUS, EVENTS
-from config import VALID_MSG_TYPES, TASKS_DIR
-from base_tools import  *
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional dependency
+    def load_dotenv(*args, **kwargs):
+        return False
+
+try:
+    from .manager import TODO, TASKS, BG, WORKTREES
+    from .skills import SKILL_LOADER
+    from .team import TEAM
+    from .message import BUS, EVENTS
+    from .config import VALID_MSG_TYPES
+    from .base_tools import (
+        check_shutdown_status,
+        claim_task,
+        handle_plan_review,
+        handle_shutdown_request,
+        run_bash,
+        run_edit,
+        run_read,
+        run_write,
+    )
+except ImportError:  # pragma: no cover - script execution fallback
+    from manager import TODO, TASKS, BG, WORKTREES
+    from skills import SKILL_LOADER
+    from team import TEAM
+    from message import BUS, EVENTS
+    from config import VALID_MSG_TYPES
+    from base_tools import (
+        check_shutdown_status,
+        claim_task,
+        handle_plan_review,
+        handle_shutdown_request,
+        run_bash,
+        run_edit,
+        run_read,
+        run_write,
+    )
 
 load_dotenv(override=True)
 
 TOOL_HANDLERS  = {
     "compact":    lambda **kw: "Manual compression requested.",
-    "task_create": lambda **kw: TASKS.create(kw["subject"], kw["description"],),
-    "task_update": lambda **kw: TASKS.update(kw["task_id"], kw.get("status"), kw.get("addBlockedBy"), kw.get("addBlocks")),
+    "task_create": lambda **kw: TASKS.create(kw["subject"], kw.get("description", "")),
+    "task_update": lambda **kw: TASKS.update(
+        kw["task_id"],
+        status=kw.get("status"),
+        add_blocked_by=kw.get("addBlockedBy"),
+        add_blocks=kw.get("addBlocks"),
+    ),
     "task_list":   lambda **kw: TASKS.list_all(),
     "task_get":    lambda **kw: TASKS.get(kw["task_id"]),
     "load_skill": lambda **kw: SKILL_LOADER.get_content(kw["name"]),
@@ -193,7 +227,10 @@ PARENT_TOOLS = CHILD_TOOLS + [
      "description": "Spawn a subagent with fresh context.",
      "input_schema": {
          "type": "object",
-         "properties": {"prompt": {"type": "string"}},
+         "properties": {
+             "prompt": {"type": "string"},
+             "description": {"type": "string"},
+         },
          "required": ["prompt"],
      }},
 ]

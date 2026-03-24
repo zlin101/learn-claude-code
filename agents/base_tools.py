@@ -4,8 +4,27 @@ import json
 import threading
 from pathlib import Path
 
-from message import BUS
-from config import WORKDIR, TASKS_DIR
+try:
+    from .message import BUS
+    from .config import WORKDIR, TASKS_DIR
+except ImportError:  # pragma: no cover - script execution fallback
+    from message import BUS
+    from config import WORKDIR, TASKS_DIR
+
+__all__ = [
+    "check_shutdown_status",
+    "claim_task",
+    "handle_plan_review",
+    "handle_shutdown_request",
+    "make_identity_block",
+    "respond_to_shutdown_request",
+    "run_bash",
+    "run_edit",
+    "run_read",
+    "run_write",
+    "scan_unclaimed_tasks",
+    "submit_plan_for_approval",
+]
 
 def safe_path(p: str) -> Path:
     path = (WORKDIR / p).resolve()
@@ -27,24 +46,35 @@ def run_bash(command: str) -> str:
         return "Error: Timeout (120s)"
     
 def run_read(path: str, limit: int = None) -> str:
-    text = safe_path(path).read_text()
-    lines = text.splitlines()
-    if limit and limit < len(lines):
-        lines = lines[:limit]
-    return "\n".join(lines)[:50000]
+    try:
+        text = safe_path(path).read_text()
+        lines = text.splitlines()
+        if limit and limit < len(lines):
+            lines = lines[:limit] + [f"... ({len(lines) - limit} more)"]
+        return "\n".join(lines)[:50000]
+    except Exception as e:
+        return f"Error: {e}"
 
 def run_write(path: str, content: str) -> str:
-    safe_path(path).write_text(content)
-    return f"Written to {path}"
+    try:
+        file_path = safe_path(path)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(content)
+        return f"Written to {path}"
+    except Exception as e:
+        return f"Error: {e}"
 
 def run_edit(path: str, old_text: str, new_text: str) -> str:
-    path_obj = safe_path(path)
-    text = path_obj.read_text()
-    if old_text not in text:
-        return f"Error: '{old_text}' not found in {path}"
-    new_content = text.replace(old_text, new_text)
-    path_obj.write_text(new_content)
-    return f"Replaced in {path}"
+    try:
+        path_obj = safe_path(path)
+        text = path_obj.read_text()
+        if old_text not in text:
+            return f"Error: '{old_text}' not found in {path}"
+        new_content = text.replace(old_text, new_text, 1)
+        path_obj.write_text(new_content)
+        return f"Replaced in {path}"
+    except Exception as e:
+        return f"Error: {e}"
 
 # -- Request trackers: correlate by request_id --
 shutdown_requests = {}
@@ -110,3 +140,42 @@ def handle_plan_review(request_id: str, approve: bool, feedback: str = "") -> st
 def check_shutdown_status(request_id: str) -> str:
     with _tracker_lock:
         return json.dumps(shutdown_requests.get(request_id, {"error": "not found"}))
+
+
+def respond_to_shutdown_request(
+    sender: str,
+    request_id: str,
+    approve: bool,
+    reason: str = "",
+) -> str:
+    with _tracker_lock:
+        if request_id in shutdown_requests:
+            shutdown_requests[request_id]["status"] = (
+                "approved" if approve else "rejected"
+            )
+    BUS.send(
+        sender,
+        "lead",
+        reason,
+        "shutdown_response",
+        {"request_id": request_id, "approve": approve},
+    )
+    return f"Shutdown {'approved' if approve else 'rejected'}"
+
+
+def submit_plan_for_approval(sender: str, plan_text: str) -> str:
+    request_id = str(uuid.uuid4())[:8]
+    with _tracker_lock:
+        plan_requests[request_id] = {
+            "from": sender,
+            "plan": plan_text,
+            "status": "pending",
+        }
+    BUS.send(
+        sender,
+        "lead",
+        plan_text,
+        "plan_approval_response",
+        {"request_id": request_id, "plan": plan_text},
+    )
+    return f"Plan submitted (request_id={request_id}). Waiting for approval."

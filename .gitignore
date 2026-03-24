@@ -1,5 +1,7 @@
 .env
 __*
+!agents/__init__.py
+!agents/__main__.py
 .vscode
 .*
 output

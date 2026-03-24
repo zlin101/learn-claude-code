@@ -1,4 +1,3 @@
-import os
 import re
 import time
 import json
@@ -6,8 +5,13 @@ import uuid
 import subprocess
 import threading
 from pathlib import Path
-from config import TASKS_DIR, WORKDIR
-from message import REPO_ROOT, EVENTS, EventBus
+
+try:
+    from .config import TASKS_DIR, WORKDIR
+    from .message import REPO_ROOT, EVENTS, EventBus
+except ImportError:  # pragma: no cover - script execution fallback
+    from config import TASKS_DIR, WORKDIR
+    from message import REPO_ROOT, EVENTS, EventBus
 
 class TodoManager:
 
@@ -17,16 +21,16 @@ class TodoManager:
     def update(self, items: list) -> str:
         validated, in_progress_count = [], 0
         for item in items:
-            status = item.get("status","pending")
-            if status == "in_process":
+            status = item.get("status", "pending")
+            if status == "in_progress":
                 in_progress_count += 1
             validated.append({
                 "id": item["id"], 
                 "text": item["text"],
-                "status": item["status"]
+                "status": status,
                 })
         if in_progress_count > 1:
-            raise ValueError("Only one task can be in_process")
+            raise ValueError("Only one task can be in_progress")
         self.items = validated
         return self.render()
     
@@ -41,41 +45,6 @@ class TodoManager:
         lines.append(f"\n({done}/{len(self.items)} completed)")
         return "\n".join(lines)
 
-# -- EventBus: append-only lifecycle events for observability --
-class EventBus:
-    def __init__(self, event_log_path: Path):
-        self.path = event_log_path
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        if not self.path.exists():
-            self.path.write_text("")
-    def emit(
-        self,
-        event: str,
-        task: dict | None = None,
-        worktree: dict | None = None,
-        error: str | None = None,
-    ):
-        payload = {
-            "event": event,
-            "ts": time.time(),
-            "task": task or {},
-            "worktree": worktree or {},
-        }
-        if error:
-            payload["error"] = error
-        with self.path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(payload) + "\n")
-    def list_recent(self, limit: int = 20) -> str:
-        n = max(1, min(int(limit or 20), 200))
-        lines = self.path.read_text(encoding="utf-8").splitlines()
-        recent = lines[-n:]
-        items = []
-        for line in recent:
-            try:
-                items.append(json.loads(line))
-            except Exception:
-                items.append({"event": "parse_error", "raw": line})
-        return json.dumps(items, indent=2)
 # -- TaskManager: persistent task board with optional worktree binding --
 class TaskManager:
     def __init__(self, tasks_dir: Path):
@@ -108,6 +77,7 @@ class TaskManager:
             "owner": "",
             "worktree": "",
             "blockedBy": [],
+            "blocks": [],
             "created_at": time.time(),
             "updated_at": time.time(),
         }
@@ -118,17 +88,53 @@ class TaskManager:
         return json.dumps(self._load(task_id), indent=2)
     def exists(self, task_id: int) -> bool:
         return self._path(task_id).exists()
-    def update(self, task_id: int, status: str = None, owner: str = None) -> str:
+    def update(
+        self,
+        task_id: int,
+        status: str = None,
+        add_blocked_by: list | None = None,
+        add_blocks: list | None = None,
+        owner: str = None,
+    ) -> str:
         task = self._load(task_id)
         if status:
             if status not in ("pending", "in_progress", "completed"):
                 raise ValueError(f"Invalid status: {status}")
             task["status"] = status
+            if status == "completed":
+                self._clear_dependency(task_id)
+        if add_blocked_by:
+            task["blockedBy"] = sorted(set(task.get("blockedBy", []) + add_blocked_by))
+        if add_blocks:
+            task["blocks"] = sorted(set(task.get("blocks", []) + add_blocks))
+            for blocked_id in add_blocks:
+                try:
+                    blocked = self._load(blocked_id)
+                except ValueError:
+                    continue
+                blocked.setdefault("blockedBy", [])
+                if task_id not in blocked["blockedBy"]:
+                    blocked["blockedBy"].append(task_id)
+                    blocked["updated_at"] = time.time()
+                    self._save(blocked)
         if owner is not None:
             task["owner"] = owner
         task["updated_at"] = time.time()
         self._save(task)
         return json.dumps(task, indent=2)
+    def _clear_dependency(self, completed_id: int):
+        for f in self.dir.glob("task_*.json"):
+            task = json.loads(f.read_text())
+            changed = False
+            if completed_id in task.get("blockedBy", []):
+                task["blockedBy"] = [item for item in task["blockedBy"] if item != completed_id]
+                changed = True
+            if completed_id in task.get("blocks", []):
+                task["blocks"] = [item for item in task["blocks"] if item != completed_id]
+                changed = True
+            if changed:
+                task["updated_at"] = time.time()
+                self._save(task)
     def bind_worktree(self, task_id: int, worktree: str, owner: str = "") -> str:
         task = self._load(task_id)
         task["worktree"] = worktree
@@ -158,9 +164,10 @@ class TaskManager:
                 "in_progress": "[>]",
                 "completed": "[x]",
             }.get(t["status"], "[?]")
+            blocked = f" blockedBy={t['blockedBy']}" if t.get("blockedBy") else ""
             owner = f" owner={t['owner']}" if t.get("owner") else ""
             wt = f" wt={t['worktree']}" if t.get("worktree") else ""
-            lines.append(f"{marker} #{t['id']}: {t['subject']}{owner}{wt}")
+            lines.append(f"{marker} #{t['id']}: {t['subject']}{blocked}{owner}{wt}")
         return "\n".join(lines)
 
 # -- BackgroundManager: threaded execution + notification queue --
@@ -392,20 +399,21 @@ class WorktreeManager:
                 args.append("--force")
             args.append(wt["path"])
             self._run_git(args)
-            if complete_task and wt.get("task_id") is not None:
-                task_id = wt["task_id"]
-                before = json.loads(self.tasks.get(task_id))
-                self.tasks.update(task_id, status="completed")
+            task_id = wt.get("task_id")
+            if task_id is not None:
+                if complete_task:
+                    before = json.loads(self.tasks.get(task_id))
+                    self.tasks.update(task_id, status="completed")
+                    self.events.emit(
+                        "task.completed",
+                        task={
+                            "id": task_id,
+                            "subject": before.get("subject", ""),
+                            "status": "completed",
+                        },
+                        worktree={"name": name},
+                    )
                 self.tasks.unbind_worktree(task_id)
-                self.events.emit(
-                    "task.completed",
-                    task={
-                        "id": task_id,
-                        "subject": before.get("subject", ""),
-                        "status": "completed",
-                    },
-                    worktree={"name": name},
-                )
             idx = self._load_index()
             for item in idx.get("worktrees", []):
                 if item.get("name") == name:
