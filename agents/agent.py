@@ -6,22 +6,13 @@ except ImportError:  # pragma: no cover - optional dependency
     def load_dotenv(*args, **kwargs):
         return False
 
-try:
-    from .context import auto_compact, estimate_tokens, micro_compact
-    from .layout_message import LOGGER, log_message, save_conversation, start_logging
-    from .message import BUS
-    from .manager import BG
-    from .config import MODEL, THRESHOLD, WORKDIR, client
-    from .skills import SKILL_LOADER
-    from .tools import CHILD_TOOLS, PARENT_TOOLS, TOOL_HANDLERS
-except ImportError:  # pragma: no cover - script execution fallback
-    from context import auto_compact, estimate_tokens, micro_compact
-    from layout_message import LOGGER, log_message, save_conversation, start_logging
-    from message import BUS
-    from manager import BG
-    from config import MODEL, THRESHOLD, WORKDIR, client
-    from skills import SKILL_LOADER
-    from tools import CHILD_TOOLS, PARENT_TOOLS, TOOL_HANDLERS
+from context import auto_compact, estimate_tokens, micro_compact
+from layout_message import LOGGER, log_message, save_conversation, start_logging
+from message import BUS
+from manager import BG
+from config import MODEL, THRESHOLD, WORKDIR, client
+from skills import SKILL_LOADER
+from tools import CHILD_TOOLS, PARENT_TOOLS, TOOL_HANDLERS
 
 load_dotenv(override=True)
 

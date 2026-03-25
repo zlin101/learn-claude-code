@@ -1,10 +1,7 @@
 import json
 import time
 
-try:
-    from .config import TRANSCRIPT_DIR, MODEL, client, KEEP_RECENT
-except ImportError:  # pragma: no cover - script execution fallback
-    from config import TRANSCRIPT_DIR, MODEL, client, KEEP_RECENT
+from config import TRANSCRIPT_DIR, MODEL, client, KEEP_RECENT
 
 def estimate_tokens(messages: list) -> int:
     """Rough token count: ~4 chars per token."""

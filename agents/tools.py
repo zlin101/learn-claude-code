@@ -6,38 +6,21 @@ except ImportError:  # pragma: no cover - optional dependency
     def load_dotenv(*args, **kwargs):
         return False
 
-try:
-    from .manager import TODO, TASKS, BG, WORKTREES
-    from .skills import SKILL_LOADER
-    from .team import TEAM
-    from .message import BUS, EVENTS
-    from .config import VALID_MSG_TYPES
-    from .base_tools import (
-        check_shutdown_status,
-        claim_task,
-        handle_plan_review,
-        handle_shutdown_request,
-        run_bash,
-        run_edit,
-        run_read,
-        run_write,
-    )
-except ImportError:  # pragma: no cover - script execution fallback
-    from manager import TODO, TASKS, BG, WORKTREES
-    from skills import SKILL_LOADER
-    from team import TEAM
-    from message import BUS, EVENTS
-    from config import VALID_MSG_TYPES
-    from base_tools import (
-        check_shutdown_status,
-        claim_task,
-        handle_plan_review,
-        handle_shutdown_request,
-        run_bash,
-        run_edit,
-        run_read,
-        run_write,
-    )
+from manager import TODO, TASKS, BG, WORKTREES
+from skills import SKILL_LOADER
+from team import TEAM
+from message import BUS, EVENTS
+from config import VALID_MSG_TYPES
+from base_tools import (
+    check_shutdown_status,
+    claim_task,
+    handle_plan_review,
+    handle_shutdown_request,
+    run_bash,
+    run_edit,
+    run_read,
+    run_write,
+)
 
 load_dotenv(override=True)
 

@@ -2,10 +2,7 @@ import time
 import json
 from pathlib import Path
 
-try:
-    from .config import INBOX_DIR, REPO_ROOT, VALID_MSG_TYPES
-except ImportError:  # pragma: no cover - script execution fallback
-    from config import INBOX_DIR, REPO_ROOT, VALID_MSG_TYPES
+from config import INBOX_DIR, REPO_ROOT, VALID_MSG_TYPES
 
 class MessageBus:
     def __init__(self, inbox_dir: Path):

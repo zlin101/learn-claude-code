@@ -6,12 +6,8 @@ import subprocess
 import threading
 from pathlib import Path
 
-try:
-    from .config import TASKS_DIR, WORKDIR
-    from .message import REPO_ROOT, EVENTS, EventBus
-except ImportError:  # pragma: no cover - script execution fallback
-    from config import TASKS_DIR, WORKDIR
-    from message import REPO_ROOT, EVENTS, EventBus
+from config import TASKS_DIR, WORKDIR
+from message import REPO_ROOT, EVENTS, EventBus
 
 class TodoManager:
 

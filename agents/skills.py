@@ -8,10 +8,7 @@ except ImportError:  # pragma: no cover - optional dependency
     def load_dotenv(*args, **kwargs):
         return False
 
-try:
-    from .config import SKILLDIR
-except ImportError:  # pragma: no cover - script execution fallback
-    from config import SKILLDIR
+from config import SKILLDIR
 
 class SkillLoader:
     def __init__(self, skills_dir: Path):

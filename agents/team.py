@@ -4,34 +4,19 @@ import traceback
 from pathlib import Path
 import threading
 
-try:
-    from .base_tools import (
-        claim_task,
-        make_identity_block,
-        respond_to_shutdown_request,
-        run_bash,
-        run_edit,
-        run_read,
-        run_write,
-        scan_unclaimed_tasks,
-        submit_plan_for_approval,
-    )
-    from .message import BUS
-    from .config import TEAM_DIR, WORKDIR, MODEL, client, POLL_INTERVAL, IDLE_TIMEOUT, VALID_MSG_TYPES
-except ImportError:  # pragma: no cover - script execution fallback
-    from base_tools import (
-        claim_task,
-        make_identity_block,
-        respond_to_shutdown_request,
-        run_bash,
-        run_edit,
-        run_read,
-        run_write,
-        scan_unclaimed_tasks,
-        submit_plan_for_approval,
-    )
-    from message import BUS
-    from config import TEAM_DIR, WORKDIR, MODEL, client, POLL_INTERVAL, IDLE_TIMEOUT, VALID_MSG_TYPES
+from base_tools import (
+    claim_task,
+    make_identity_block,
+    respond_to_shutdown_request,
+    run_bash,
+    run_edit,
+    run_read,
+    run_write,
+    scan_unclaimed_tasks,
+    submit_plan_for_approval,
+)
+from message import BUS
+from config import TEAM_DIR, WORKDIR, MODEL, client, POLL_INTERVAL, IDLE_TIMEOUT, VALID_MSG_TYPES
 
 # -- TeammateManager: persistent named agents with config.json --
 # -- Autonomous TeammateManager --

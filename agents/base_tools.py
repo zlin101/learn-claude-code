@@ -4,12 +4,8 @@ import json
 import threading
 from pathlib import Path
 
-try:
-    from .message import BUS
-    from .config import WORKDIR, TASKS_DIR
-except ImportError:  # pragma: no cover - script execution fallback
-    from message import BUS
-    from config import WORKDIR, TASKS_DIR
+from message import BUS
+from config import WORKDIR, TASKS_DIR
 
 __all__ = [
     "check_shutdown_status",
