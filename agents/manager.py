@@ -63,7 +63,7 @@ class TaskManager:
             raise ValueError(f"Task {task_id} not found")
         return json.loads(path.read_text())
     def _save(self, task: dict):
-        self._path(task["id"]).write_text(json.dumps(task, indent=2))
+        self._path(task["id"]).write_text(json.dumps(task, indent=2, ensure_ascii=False))
     def create(self, subject: str, description: str = "") -> str:
         task = {
             "id": self._next_id,
@@ -79,9 +79,9 @@ class TaskManager:
         }
         self._save(task)
         self._next_id += 1
-        return json.dumps(task, indent=2)
+        return json.dumps(task, indent=2, ensure_ascii=False)
     def get(self, task_id: int) -> str:
-        return json.dumps(self._load(task_id), indent=2)
+        return json.dumps(self._load(task_id), indent=2, ensure_ascii=False)
     def exists(self, task_id: int) -> bool:
         return self._path(task_id).exists()
     def update(
@@ -117,7 +117,7 @@ class TaskManager:
             task["owner"] = owner
         task["updated_at"] = time.time()
         self._save(task)
-        return json.dumps(task, indent=2)
+        return json.dumps(task, indent=2, ensure_ascii=False)
     def _clear_dependency(self, completed_id: int):
         for f in self.dir.glob("task_*.json"):
             task = json.loads(f.read_text())
@@ -140,13 +140,13 @@ class TaskManager:
             task["status"] = "in_progress"
         task["updated_at"] = time.time()
         self._save(task)
-        return json.dumps(task, indent=2)
+        return json.dumps(task, indent=2, ensure_ascii=False)
     def unbind_worktree(self, task_id: int) -> str:
         task = self._load(task_id)
         task["worktree"] = ""
         task["updated_at"] = time.time()
         self._save(task)
-        return json.dumps(task, indent=2)
+        return json.dumps(task, indent=2, ensure_ascii=False)
     def list_all(self) -> str:
         tasks = []
         for f in sorted(self.dir.glob("task_*.json")):
@@ -238,7 +238,7 @@ class WorktreeManager:
         self.dir.mkdir(parents=True, exist_ok=True)
         self.index_path = self.dir / "index.json"
         if not self.index_path.exists():
-            self.index_path.write_text(json.dumps({"worktrees": []}, indent=2))
+            self.index_path.write_text(json.dumps({"worktrees": []}, indent=2, ensure_ascii=False))
         self.git_available = self._is_git_repo()
     def _is_git_repo(self) -> bool:
         try:
@@ -269,7 +269,7 @@ class WorktreeManager:
     def _load_index(self) -> dict:
         return json.loads(self.index_path.read_text())
     def _save_index(self, data: dict):
-        self.index_path.write_text(json.dumps(data, indent=2))
+        self.index_path.write_text(json.dumps(data, indent=2, ensure_ascii=False))
     def _find(self, name: str) -> dict | None:
         idx = self._load_index()
         for wt in idx.get("worktrees", []):
@@ -319,7 +319,7 @@ class WorktreeManager:
                     "status": "active",
                 },
             )
-            return json.dumps(entry, indent=2)
+            return json.dumps(entry, indent=2, ensure_ascii=False)
         except Exception as e:
             self.events.emit(
                 "worktree.create.failed",
@@ -451,7 +451,7 @@ class WorktreeManager:
                 "status": "kept",
             },
         )
-        return json.dumps(kept, indent=2) if kept else f"Error: Unknown worktree '{name}'"
+        return json.dumps(kept, indent=2, ensure_ascii=False) if kept else f"Error: Unknown worktree '{name}'"
 
 TODO = TodoManager()
 TASKS = TaskManager(TASKS_DIR)
