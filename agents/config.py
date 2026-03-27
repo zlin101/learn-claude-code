@@ -56,7 +56,7 @@ def _resolve_from_base(path_str: str) -> Path:
 WORKDIR = _resolve_from_base(os.getenv("WORKDIR", "."))
 REPO_ROOT = detect_repo_root(WORKDIR) or WORKDIR
 SKILLDIR = _resolve_from_base(os.getenv("SKILLDIR", "."))
-MODEL = os.getenv("MODEL", "glm-4.7")
+MODEL = os.getenv("MODEL", "glm-5-turbo")
 
 TEAM_DIR = REPO_ROOT / ".team"
 INBOX_DIR = TEAM_DIR / "inbox"
